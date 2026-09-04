@@ -1,0 +1,12 @@
+.DS_Store
+node_modules/
+coverage/
+dist/
+.cache/
+.idea/
+.vscode/
+*.log
+*.tgz
+
+# Локальное состояние проектирования и аудит с абсолютными путями машины.
+.ai-design/

@@ -1,0 +1,40 @@
+{
+  "name": "ai-agents-library",
+  "version": "0.1.0",
+  "description": "Общие модули для локальных агентских инструментов",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Andrey-Kovinjonok/ai-agents-library-.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Andrey-Kovinjonok/ai-agents-library-/issues"
+  },
+  "homepage": "https://github.com/Andrey-Kovinjonok/ai-agents-library-#readme",
+  "type": "module",
+  "files": [
+    "LICENSE",
+    "src",
+    "docs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./project-locations": {
+      "types": "./src/project-locations.d.ts",
+      "import": "./src/project-locations.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
