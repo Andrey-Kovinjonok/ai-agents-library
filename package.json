@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-library",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Общие модули для локальных агентских инструментов",
   "private": true,
   "license": "MIT",
@@ -15,6 +15,8 @@
   "type": "module",
   "files": [
     "LICENSE",
+    "bin",
+    "skills",
     "src",
     "docs",
     "README.md"
@@ -24,6 +26,10 @@
   },
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
+  "bin": {
+    "approval-continuation-hook": "./bin/approval-continuation-hook.js",
+    "install-approval-continuation": "./bin/install-approval-continuation.js"
+  },
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
@@ -32,6 +38,18 @@
     "./project-locations": {
       "types": "./src/project-locations.d.ts",
       "import": "./src/project-locations.js"
+    },
+    "./branch-targets": {
+      "types": "./src/branch-targets.d.ts",
+      "import": "./src/branch-targets.js"
+    },
+    "./git-checkout": {
+      "types": "./src/git-checkout.d.ts",
+      "import": "./src/git-checkout.js"
+    },
+    "./approval-continuation": {
+      "types": "./src/approval-continuation/index.d.ts",
+      "import": "./src/approval-continuation/index.js"
     }
   },
   "scripts": {

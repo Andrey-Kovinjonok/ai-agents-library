@@ -459,3 +459,20 @@ export async function ensureProductProject(product, startPath, options = {}) {
     };
   });
 }
+
+/** Merge product-owned settings, preserving other projects and unknown fields. */
+export async function updateProductProject(product, startPath, patch, options = {}) {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)
+    || Object.hasOwn(patch, "directory")) {
+    throw new Error("Настройки должны быть объектом без изменения directory");
+  }
+  const prepared = await ensureProductProject(product, startPath, options);
+  return withFileLock(`${prepared.productConfigFile}.lock`, async () => {
+    const current = resolveProductProject(product, startPath, options);
+    const config = { ...current.config, projects: { ...current.config.projects,
+      [current.identity.canonicalPath]: { ...current.mapping, ...patch },
+    } };
+    writeJsonAtomic(current.productConfigFile, config);
+    return resolveProductProject(product, startPath, options);
+  });
+}

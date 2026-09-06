@@ -1,0 +1,5 @@
+interface:
+  display_name: "ACP: Approvals & Continuation"
+  short_description: "Safe approvals, continuation, and procedure hints"
+  default_prompt: "Use $approval-continuation to explain the current approval or continuation decision."
+

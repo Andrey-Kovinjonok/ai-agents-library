@@ -67,3 +67,10 @@ export function ensureProductProject(
   startPath: string,
   options?: ProjectIdentityOptions & AgentProductPathsOptions,
 ): Promise<ResolvedProductProject>;
+
+export function updateProductProject(
+  product: string,
+  startPath: string,
+  patch: Record<string, unknown> & { directory?: never },
+  options?: ProjectIdentityOptions & AgentProductPathsOptions,
+): Promise<ResolvedProductProject>;
