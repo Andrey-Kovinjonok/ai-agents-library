@@ -98,7 +98,7 @@ export async function evaluateApprovalContinuationEvent(payload, options = {}) {
     case "SessionStart":
       return sessionContext(payload, settings, options);
     case "Stop":
-      return continuationDecision(payload, settings.continuation.enabled);
+      return continuationDecision(payload, settings.continuation, options);
     default:
       return null;
   }
@@ -126,4 +126,3 @@ export async function runApprovalContinuationHook(options = {}) {
   }
   return 0;
 }
-

@@ -67,6 +67,7 @@ GitNexus и CodeGraph используют одинаковый псевдони
 ```js
 import {
   ensureProductProject,
+  findProductProject,
   resolveProductProject,
 } from "ai-agents-library";
 
@@ -76,6 +77,10 @@ console.log(prepared.projectDirectory);
 // В каждом вызове config.json читается с диска заново.
 const current = resolveProductProject("git-nexus", process.cwd());
 console.log(current.mapping);
+
+// Для необязательного подключения отсутствие записи является обычным результатом.
+const optional = findProductProject("git-nexus", process.cwd());
+if (!optional.configured) console.log(optional.reason);
 ```
 
 `ensureProductProject` — единственная операция первого модуля, которая создаёт
@@ -104,7 +109,23 @@ console.log(current.mapping);
 
 [Формат и примеры](docs/branch-targets.md).
 [Проверка подключений трёх инструментов](docs/tool-integration-audit-2026-09-06.md).
-Модуль готов в библиотеке; подключение внутри наших трёх инструментов ещё не выполнено.
+Модуль подключён в собственных внешних запусках наших веток GitNexus и CodeGraph.
+Graphify пока ожидает реализации. Историческая проверка по ссылке выше описывает
+состояние до этого подключения; текущие ограничения находятся в agent/README.md
+каждого инструмента.
+
+## Общий обмен сообщениями с дочерним процессом
+
+JsonLinePeer и spawnJsonLinePeer экспортируются из основного модуля библиотеки.
+Они передают запросы и ответы отдельными строками JSON (JavaScript Object
+Notation — текстовый формат структурированных данных), связывают ответы с
+номерами запросов и закрывают только собственный дочерний процесс.
+
+Этот общий код используют новые внешние входы GitNexus и CodeGraph. Библиотека
+не выбирает проект, индекс, ветку или движок. Явное окружение дочернего процесса,
+разрешённые операции и настройки конфиденциальности задаёт продукт.
+
+[Договорённости и ограничения общего обмена](docs/json-line-rpc.md).
 
 ## Навык `approval-continuation`
 

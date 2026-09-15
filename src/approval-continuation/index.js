@@ -1,6 +1,10 @@
 export * from "./config.js";
+export * from "./continuation-state.js";
+export * from "./command-hook-adapter.js";
+export * from "./git-action-approval.js";
+export * from "./git-action-installer.js";
+export * from "./git-action-permissions.js";
 export * from "./hook.js";
 export * from "./installer.js";
 export * from "./observations.js";
 export * from "./policy.js";
-

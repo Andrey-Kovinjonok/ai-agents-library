@@ -266,15 +266,30 @@ function verifiedConfiguredProjectDirectory(standardPaths, directory) {
  * Read a product's own config on every invocation and resolve the directory
  * mapped to the canonical project path. No cache is intentionally used.
  */
-export function resolveProductProject(product, startPath, options = {}) {
+export function findProductProject(product, startPath, options = {}) {
   const identity = resolveProjectIdentity(startPath, options);
   const standardPaths = agentProductPaths(product, identity, options);
+  if (!fs.existsSync(standardPaths.productConfigFile)) {
+    return {
+      ...standardPaths,
+      configured: false,
+      reason: "config-missing",
+      identity,
+    };
+  }
   const config = readProductConfig(standardPaths.productConfigFile);
   const mapping = config.projects[identity.canonicalPath];
+  if (mapping === undefined) {
+    return {
+      ...standardPaths,
+      configured: false,
+      reason: "project-missing",
+      identity,
+      config,
+    };
+  }
   if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) {
-    throw new Error(
-      `В конфиге продукта ${product} нет проекта: ${identity.canonicalPath}`,
-    );
+    throw new Error(`Некорректная запись проекта: ${identity.canonicalPath}`);
   }
   const projectDirectory = verifiedConfiguredProjectDirectory(
     standardPaths,
@@ -282,11 +297,23 @@ export function resolveProductProject(product, startPath, options = {}) {
   );
   return {
     ...standardPaths,
+    configured: true,
     identity,
     projectDirectory,
     mapping,
     config,
   };
+}
+
+/** Resolve a required product project or throw when its exact path is absent. */
+export function resolveProductProject(product, startPath, options = {}) {
+  const resolved = findProductProject(product, startPath, options);
+  if (!resolved.configured) {
+    throw new Error(
+      `В конфиге продукта ${product} нет проекта: ${resolved.identity.canonicalPath}`,
+    );
+  }
+  return resolved;
 }
 
 function delay(milliseconds) {

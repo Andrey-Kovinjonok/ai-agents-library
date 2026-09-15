@@ -35,7 +35,11 @@ therefore require a new session even though the JSON settings do not.
 
 The `Stop` event may request one more pass only when settings enable it, the
 last message explicitly says work remains, and the message does not ask the
-user for a decision. The runtime loop marker must stop repeated continuation.
+user for a decision. The hook atomically limits this to one continuation per
+session by default (`maxAutomaticContinuationsPerSession: 1`). The runtime loop
+marker and the per-session marker both stop repeated continuation. An explicit
+completion sentence such as «дальше ничего менять не нужно» always suppresses
+the request. If the event has no session identifier, the hook fails closed.
 
 Do not continue automatically when work requires a product choice, new
 authority, an ambiguous destructive target, a production mutation, or missing
@@ -56,4 +60,3 @@ full output, prompts, credentials, environment values, or environment files.
 Before widening persistent behavior, show what changes, where it is stored,
 when it triggers, the risks, and how to undo it. Never promote an observation
 into policy automatically.
-

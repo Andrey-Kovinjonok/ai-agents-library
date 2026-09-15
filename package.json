@@ -28,6 +28,8 @@
   "types": "./src/index.d.ts",
   "bin": {
     "approval-continuation-hook": "./bin/approval-continuation-hook.js",
+    "git-action-guard-hook": "./bin/git-action-guard-hook.js",
+    "install-git-action-guard": "./bin/install-git-action-guard.js",
     "install-approval-continuation": "./bin/install-approval-continuation.js"
   },
   "exports": {
@@ -50,6 +52,22 @@
     "./approval-continuation": {
       "types": "./src/approval-continuation/index.d.ts",
       "import": "./src/approval-continuation/index.js"
+    },
+    "./adapters/pi": {
+      "types": "./src/adapters/pi.d.ts",
+      "import": "./src/adapters/pi.js"
+    },
+    "./adapters/oh-my-pi": {
+      "types": "./src/adapters/oh-my-pi.d.ts",
+      "import": "./src/adapters/oh-my-pi.js"
+    },
+    "./adapters/opencode-v1": {
+      "types": "./src/adapters/opencode-v1.d.ts",
+      "import": "./src/adapters/opencode-v1.js"
+    },
+    "./adapters/opencode-v2": {
+      "types": "./src/adapters/opencode-v2.d.ts",
+      "import": "./src/adapters/opencode-v2.js"
     }
   },
   "scripts": {

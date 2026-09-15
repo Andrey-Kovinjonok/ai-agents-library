@@ -26,7 +26,7 @@ function productConfigFile(agentsRoot) {
   );
 }
 
-function writeConfig(agentsRoot, trustedRoots, enabledClasses = []) {
+function writeConfig(agentsRoot, trustedRoots, enabledClasses = [], maximum = 1) {
   const file = productConfigFile(agentsRoot);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify({
@@ -35,7 +35,10 @@ function writeConfig(agentsRoot, trustedRoots, enabledClasses = []) {
     settings: {
       trustedWorkRoots: trustedRoots,
       approval: { enabledClasses },
-      continuation: { enabled: true },
+      continuation: {
+        enabled: true,
+        maxAutomaticContinuationsPerSession: maximum,
+      },
       observations: { enabled: true },
       safety: { enabled: false },
     },
@@ -189,6 +192,7 @@ test("продолжение срабатывает один раз и уваж�
   writeConfig(agentsRoot, [homeDir]);
   const payload = {
     hook_event_name: "Stop",
+    session_id: "session-1",
     last_assistant_message: "Осталось запустить обещанные проверки.",
   };
 
@@ -202,7 +206,94 @@ test("продолжение срабатывает один раз и уваж�
   }, { agentsRoot, homeDir });
 
   assert.equal(first.decision, "block");
+  assert.match(first.reason, /1\/1/u);
   assert.equal(second, null);
+  const third = await evaluateApprovalContinuationEvent(payload, {
+    agentsRoot,
+    homeDir,
+  });
+  assert.equal(third, null);
+  fs.rmSync(temp, { recursive: true, force: true });
+});
+
+test("явное сообщение об окончании запрещает продолжение", async () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "approval-stop-complete-"));
+  const homeDir = path.join(temp, "home", "tester");
+  const agentsRoot = path.join(homeDir, ".agents");
+  fs.mkdirSync(homeDir, { recursive: true });
+  writeConfig(agentsRoot, [homeDir]);
+
+  const decision = await evaluateApprovalContinuationEvent({
+    hook_event_name: "Stop",
+    session_id: "session-complete",
+    last_assistant_message: "Проверка завершена. Дальше ничего менять не нужно.",
+  }, { agentsRoot, homeDir });
+
+  assert.equal(decision, null);
+  fs.rmSync(temp, { recursive: true, force: true });
+});
+
+test("без идентификатора сессии продолжение не выдаётся", async () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "approval-stop-no-session-"));
+  const homeDir = path.join(temp, "home", "tester");
+  const agentsRoot = path.join(homeDir, ".agents");
+  fs.mkdirSync(homeDir, { recursive: true });
+  writeConfig(agentsRoot, [homeDir]);
+
+  const decision = await evaluateApprovalContinuationEvent({
+    hook_event_name: "Stop",
+    last_assistant_message: "Осталось запустить обещанные проверки.",
+  }, { agentsRoot, homeDir });
+
+  assert.equal(decision, null);
+  fs.rmSync(temp, { recursive: true, force: true });
+});
+
+test("две одновременные остановки получают не более одного продолжения", async () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "approval-stop-race-"));
+  const homeDir = path.join(temp, "home", "tester");
+  const agentsRoot = path.join(homeDir, ".agents");
+  fs.mkdirSync(homeDir, { recursive: true });
+  writeConfig(agentsRoot, [homeDir]);
+  const payload = {
+    hook_event_name: "Stop",
+    session_id: "session-race",
+    last_assistant_message: "Осталось запустить обещанные проверки.",
+  };
+
+  const decisions = await Promise.all([
+    evaluateApprovalContinuationEvent(payload, { agentsRoot, homeDir }),
+    evaluateApprovalContinuationEvent(payload, { agentsRoot, homeDir }),
+  ]);
+
+  assert.equal(decisions.filter((decision) => decision?.decision === "block").length, 1);
+  assert.equal(decisions.filter((decision) => decision === null).length, 1);
+  fs.rmSync(temp, { recursive: true, force: true });
+});
+
+test("лимит продолжений перечитывается между вызовами", async () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "approval-stop-live-limit-"));
+  const homeDir = path.join(temp, "home", "tester");
+  const agentsRoot = path.join(homeDir, ".agents");
+  fs.mkdirSync(homeDir, { recursive: true });
+  writeConfig(agentsRoot, [homeDir], [], 0);
+  const payload = {
+    hook_event_name: "Stop",
+    session_id: "session-live-limit",
+    last_assistant_message: "Осталось запустить обещанные проверки.",
+  };
+
+  assert.equal(await evaluateApprovalContinuationEvent(payload, { agentsRoot, homeDir }), null);
+  writeConfig(agentsRoot, [homeDir], [], 2);
+  assert.equal(
+    (await evaluateApprovalContinuationEvent(payload, { agentsRoot, homeDir }))?.decision,
+    "block",
+  );
+  assert.equal(
+    (await evaluateApprovalContinuationEvent(payload, { agentsRoot, homeDir }))?.decision,
+    "block",
+  );
+  assert.equal(await evaluateApprovalContinuationEvent(payload, { agentsRoot, homeDir }), null);
   fs.rmSync(temp, { recursive: true, force: true });
 });
 

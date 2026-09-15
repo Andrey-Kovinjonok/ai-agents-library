@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { claimContinuation } from "./continuation-state.js";
+
 const DESTRUCTIVE_PATTERNS = [
   [
     /(?:^|\s)git\s+clean\s+-(?:[^\s]*f[^\s]*d|[^\s]*d[^\s]*f)(?:\s|$)/u,
@@ -28,6 +30,12 @@ const INCOMPLETE_PATTERNS = [
   /\bnot\s+(?:done|complete|finished)\b/iu,
   /\bin\s+progress\b/iu,
   /\bTODO\b/iu,
+];
+
+const EXPLICITLY_COMPLETE_PATTERNS = [
+  /дальше\s+ничего\s+(?:дополнительно\s+)?(?:менять|делать)\s+не\s+нужно/iu,
+  /дополнительных?\s+действий?\s+не\s+требуется/iu,
+  /(?:работа|задача)\s+завершен[аоы]?/iu,
 ];
 
 const USER_DECISION_PATTERNS = [
@@ -307,18 +315,32 @@ export function findExitCode(value) {
   return null;
 }
 
-export function continuationDecision(payload, enabled) {
-  if (!enabled || payload?.stop_hook_active === true) return null;
+export function continuationDecision(payload, settingsOrEnabled, options = {}) {
+  const settings = settingsOrEnabled !== null && typeof settingsOrEnabled === "object"
+    ? settingsOrEnabled
+    : {
+      enabled: settingsOrEnabled === true,
+      maxAutomaticContinuationsPerSession: 1,
+    };
+  if (settings.enabled !== true || payload?.stop_hook_active === true) return null;
   const message = payload?.last_assistant_message;
   if (typeof message !== "string" || message.trim() === "") return null;
+  if (EXPLICITLY_COMPLETE_PATTERNS.some((pattern) => pattern.test(message))) return null;
   if (USER_DECISION_PATTERNS.some((pattern) => pattern.test(message))) return null;
   if (!INCOMPLETE_PATTERNS.some((pattern) => pattern.test(message))) return null;
+  if (!claimContinuation(
+    payload,
+    settings.maxAutomaticContinuationsPerSession,
+    options,
+  )) return null;
   return {
     decision: "block",
     reason: (
       "Продолжай текущее задание: заверши явно оставшуюся безопасную работу "
       + "и обещанные проверки. Не расширяй область задачи и не выполняй "
-      + "рискованные операции без отдельного разрешения пользователя."
+      + "рискованные операции без отдельного разрешения пользователя. "
+      + "Автопродолжение 1/1 для этой сессии уже использовано; "
+      + "повторные Stop-события продолжение не запускают."
     ),
   };
 }

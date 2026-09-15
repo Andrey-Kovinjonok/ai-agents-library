@@ -69,7 +69,10 @@ export function defaultApprovalContinuationConfig(options = {}) {
       approval: {
         enabledClasses: [...SUPPORTED_APPROVAL_CLASSES],
       },
-      continuation: { enabled: true },
+      continuation: {
+        enabled: true,
+        maxAutomaticContinuationsPerSession: 1,
+      },
       observations: { enabled: true },
       safety: { enabled: false },
     },
@@ -109,7 +112,10 @@ function disabledRuntimeSettings(configFile) {
     configFile,
     trustedWorkRoots: [],
     approval: { enabledClasses: [] },
-    continuation: { enabled: false },
+    continuation: {
+      enabled: false,
+      maxAutomaticContinuationsPerSession: 1,
+    },
     observations: { enabled: false },
     safety: { enabled: false },
   };
@@ -175,7 +181,21 @@ export function readApprovalContinuationSettings(options = {}) {
     configFile: paths.configFile,
     trustedWorkRoots,
     approval: { enabledClasses },
-    continuation: { enabled: enabled("continuation") },
+    continuation: (() => {
+      const section = objectValue(config.settings.continuation)
+        ? config.settings.continuation
+        : {};
+      const configuredMaximum = section.maxAutomaticContinuationsPerSession;
+      const maximum = Number.isSafeInteger(configuredMaximum)
+        && configuredMaximum >= 0
+        && configuredMaximum <= 100
+        ? configuredMaximum
+        : 1;
+      return {
+        enabled: section.enabled === true,
+        maxAutomaticContinuationsPerSession: maximum,
+      };
+    })(),
     observations: { enabled: enabled("observations") },
     safety: { enabled: enabled("safety") },
   };

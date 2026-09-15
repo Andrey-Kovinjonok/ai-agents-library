@@ -7,6 +7,7 @@ test("корень общей библиотеки экспортирует пе
   assert.equal(typeof agentLibrary.resolveProjectIdentity, "function");
   assert.equal(typeof agentLibrary.agentProductPaths, "function");
   assert.equal(typeof agentLibrary.resolveProductProject, "function");
+  assert.equal(typeof agentLibrary.findProductProject, "function");
   assert.equal(typeof agentLibrary.ensureProductProject, "function");
   assert.equal(typeof agentLibrary.resolveBranchTargets, "function");
   assert.equal(typeof agentLibrary.migrateLegacyBranchTargets, "function");
