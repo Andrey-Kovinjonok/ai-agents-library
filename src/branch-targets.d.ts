@@ -1,4 +1,5 @@
 export const CURRENT_BRANCH_TARGET: "__CURERNT__";
+export const JUST_CURRENT_BRANCH_TARGET: "__JUST_CURRENT_BRANCH__";
 export const BRANCH_TARGETS_VERSION: 2;
 
 /** Product-owned fields, independent from its config.json schemaVersion. */
@@ -26,6 +27,7 @@ export interface ResolvedBranchTarget {
   /** Stable identity, NOT a safe directory name. */
   branchKey: string;
   workingTree: boolean;
+  storageMode?: "just-current";
 }
 
 /** Pure selection only; the product verifies refs and runs/indexes the actual checkout. */

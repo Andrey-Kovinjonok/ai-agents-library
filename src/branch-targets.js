@@ -1,5 +1,6 @@
 /** Exact public spelling requested by the caller; other spellings are literal branches. */
 export const CURRENT_BRANCH_TARGET = "__CURERNT__";
+export const JUST_CURRENT_BRANCH_TARGET = "__JUST_CURRENT_BRANCH__";
 export const BRANCH_TARGETS_VERSION = 2;
 
 function assertObject(value, field) {
@@ -76,6 +77,9 @@ export function resolveBranchTargets(input) {
     throw new TypeError("targetsVersion must be 2; explicitly migrate legacy targets before resolving them");
   }
   assertTargets(targets);
+  if (targets.includes(JUST_CURRENT_BRANCH_TARGET) && targets.length !== 1) {
+    throw new TypeError("__JUST_CURRENT_BRANCH__ must be the only target");
+  }
   if (currentBranch !== null) assertBranchName(currentBranch, "currentBranch");
   if (!Array.isArray(remotes)) throw new TypeError("remotes must be an array of remote names");
   for (const remote of remotes) {
@@ -85,9 +89,10 @@ export function resolveBranchTargets(input) {
   const remoteNames = new Set(remotes);
   const byKey = new Map();
   for (const target of targets) {
-    const resolved = target === CURRENT_BRANCH_TARGET
+    const resolved = target === CURRENT_BRANCH_TARGET || target === JUST_CURRENT_BRANCH_TARGET
       ? currentTarget(currentBranch, currentCommit)
       : literalTarget(target, currentBranch, remoteNames);
+    if (target === JUST_CURRENT_BRANCH_TARGET) resolved.storageMode = "just-current";
     const existing = byKey.get(resolved.branchKey);
     if (existing) {
       if (!existing.requestedTargets.includes(target)) existing.requestedTargets.push(target);
