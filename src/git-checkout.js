@@ -45,12 +45,34 @@ function realWithTail(value) {
   return path.join(realWithTail(path.dirname(value)), path.basename(value));
 }
 
+function assertSnapshotPath(directory, name) {
+  let target = directory;
+  const parts = name.split('/');
+  for (let index = 0; index < parts.length; index++) {
+    target = path.join(target, parts[index]);
+    let stat;
+    try { stat = fs.lstatSync(target); }
+    catch (error) { if (error.code === 'ENOENT') return; throw error; }
+    if (stat.isSymbolicLink() || (index < parts.length - 1 ? !stat.isDirectory() : !stat.isFile())) {
+      throw new Error('Недопустимая ссылка или тип пути снимка');
+    }
+  }
+}
+
 /** Independent sanitized Git history; never adds worktrees or writes to the source repository. */
-export function createGitSourceSnapshot({ checkoutPath, destination, reference, workingTree, branch, previousSnapshot }) {
+export function createGitSourceSnapshot({ checkoutPath, destination, reference, workingTree, branch, previousSnapshot, reuse = false }) {
   const before = readGitCheckout(checkoutPath);
   const source = before.checkoutPath;
   const directory = realWithTail(path.resolve(destination));
-  if (inside(source, directory) || fs.existsSync(directory)) throw new Error("Нужна новая папка вне исходного проекта");
+  if (inside(source, directory) || (!reuse && fs.existsSync(directory))) throw new Error("Нужна новая папка вне исходного проекта");
+  const existing = reuse && fs.existsSync(directory);
+  let oldFiles = [];
+  if (existing) {
+    if (fs.realpathSync(destination) !== path.resolve(destination)) throw new Error("Ссылка вместо снимка");
+    const marker = JSON.parse(fs.readFileSync(path.join(directory, ".git", "ai-agents-source.json"), "utf8"));
+    if (marker.schemaVersion !== 1 || marker.source !== source) throw new Error("Снимок относится к другому проекту");
+    oldFiles = git(directory, ["ls-files", "-z"]).split("\0").filter(Boolean);
+  }
   git(source, ["check-ref-format", "--branch", branch]);
   if (typeof reference !== "string" || reference.startsWith("-") || /[\s\0]/.test(reference)) throw new Error("Некорректная ссылка Git");
   const sourceCommit = git(source, ["rev-parse", "--verify", "--end-of-options", `${reference}^{commit}`]).trim();
@@ -94,7 +116,17 @@ export function createGitSourceSnapshot({ checkoutPath, destination, reference, 
     throw new Error("Ветка изменилась во время подготовки снимка; повторите запуск");
   }
   fs.mkdirSync(path.dirname(directory), { recursive: true, mode: 0o700 });
-  if (previousSnapshot) {
+  if (existing) {
+    for (const name of new Set([...oldFiles, ...files.map(file => file.name)])) {
+      if (!allowed(name)) throw new Error('Недопустимый файл предыдущего снимка');
+      assertSnapshotPath(directory, name);
+    }
+  }
+  if (existing) {
+    const prior = git(directory, ["rev-parse", "HEAD"]).trim();
+    git(directory, ["symbolic-ref", "HEAD", `refs/heads/${branch}`]);
+    git(directory, ["update-ref", `refs/heads/${branch}`, prior]);
+  } else if (previousSnapshot) {
     const previous = fs.realpathSync(previousSnapshot);
     const marker = JSON.parse(fs.readFileSync(path.join(previous, ".git", "ai-agents-source.json"), "utf8"));
     if (marker.schemaVersion !== 1 || marker.source !== source) throw new Error("Предыдущий снимок относится к другому источнику");
@@ -106,16 +138,45 @@ export function createGitSourceSnapshot({ checkoutPath, destination, reference, 
     git(directory, ["init", "-b", branch]);
   }
   const fingerprint = createHash("sha256");
+  let changedFiles = 0;
+  const names = new Set(files.map(file => file.name));
+  for (const name of oldFiles) {
+    if (names.has(name)) continue;
+    if (!allowed(name)) throw new Error("Недопустимый файл предыдущего снимка");
+    const target = path.join(directory, name);
+    if (fs.existsSync(target)) {
+      if (!fs.lstatSync(target).isFile() || fs.realpathSync(target) !== target) throw new Error("Ссылка вместо файла снимка");
+      fs.unlinkSync(target);
+    }
+    changedFiles++;
+  }
   for (const file of files) {
     const target = path.join(directory, file.name);
     fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(target, file.content, { flag: "wx", mode: file.mode === "100755" ? 0o700 : 0o600 });
+    if (fs.existsSync(target) && (!fs.lstatSync(target).isFile() || fs.realpathSync(target) !== target)) throw new Error("Ссылка вместо файла снимка");
+    const same = existing && fs.existsSync(target) && fs.readFileSync(target).equals(file.content)
+      && Boolean(fs.statSync(target).mode & 0o111) === (file.mode === "100755");
+    if (!same) {
+      fs.writeFileSync(target, file.content, { flag: existing
+        ? fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW
+        : "wx", mode: file.mode === "100755" ? 0o700 : 0o600 });
+      fs.chmodSync(target, file.mode === "100755" ? 0o700 : 0o600);
+      changedFiles++;
+    }
     fingerprint.update(`${file.name}\0${file.mode}\0${file.content.length}\0`).update(file.content);
   }
-  git(directory, ["add", "--force", "--all"]);
-  git(directory, ["-c", "user.name=Agent source snapshot", "-c", "user.email=snapshot@localhost.invalid",
+  if (!existing || changedFiles) {
+    git(directory, ["add", "--update"]);
+    for (let index = 0; index < files.length; index += 200) {
+      git(directory, ["add", "--force", "--", ...files.slice(index, index + 200).map(file => file.name)]);
+    }
+    git(directory, ["-c", "user.name=Agent source snapshot", "-c", "user.email=snapshot@localhost.invalid",
     "commit", "--allow-empty", "-m", `Source ${sourceCommit}`]);
+  }
   const snapshotCommit = git(directory, ["rev-parse", "HEAD"]).trim();
-  fs.writeFileSync(path.join(directory, ".git", "ai-agents-source.json"), JSON.stringify({ schemaVersion: 1, source, snapshotCommit }), { flag: "wx", mode: 0o600 });
-  return { directory, sourceCommit, sourceFingerprint: fingerprint.digest("hex"), snapshotCommit, files: files.length, excluded };
+  const markerFile = path.join(directory, ".git", "ai-agents-source.json");
+  const markerText = JSON.stringify({ schemaVersion: 1, source, snapshotCommit });
+  if (!existing || fs.readFileSync(markerFile, "utf8") !== markerText)
+    fs.writeFileSync(markerFile, markerText, { flag: existing ? "w" : "wx", mode: 0o600 });
+  return { directory, sourceCommit, sourceFingerprint: fingerprint.digest("hex"), snapshotCommit, files: files.length, excluded, changedFiles };
 }

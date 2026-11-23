@@ -22,6 +22,58 @@ function fixture(t) {
   return { root, repo };
 }
 
+test('reuse skips unchanged files and commits, then applies additions, removals and modes', t => {
+  const { root, repo } = fixture(t);
+  const initial = createGitSourceSnapshot({ checkoutPath: repo, destination: path.join(root, 'reuse'),
+    reference: 'HEAD', workingTree: true, branch: 'beta' });
+  const options = { checkoutPath: repo, destination: initial.directory,
+    reference: 'HEAD', workingTree: true, branch: 'beta', reuse: true };
+  const oldFile = path.join(initial.directory, 'main.js');
+  const before = fs.statSync(oldFile).mtimeMs;
+  const unchanged = createGitSourceSnapshot(options);
+  assert.equal(unchanged.changedFiles, 0);
+  assert.equal(unchanged.snapshotCommit, initial.snapshotCommit);
+  assert.equal(fs.statSync(oldFile).mtimeMs, before);
+  fs.writeFileSync(path.join(repo, 'main.js'), 'changed fixture\n');
+  fs.chmodSync(path.join(repo, 'main.js'), 0o700);
+  fs.writeFileSync(path.join(repo, 'added.js'), 'added fixture\n');
+  const sourceStatus = git(repo, 'status', '--porcelain=v1');
+  const changed = createGitSourceSnapshot(options);
+  assert.equal(changed.changedFiles, 2);
+  assert.equal(fs.readFileSync(oldFile, 'utf8'), 'changed fixture\n');
+  assert.ok(fs.statSync(oldFile).mode & 0o111);
+  assert.equal(git(repo, 'status', '--porcelain=v1'), sourceStatus);
+  fs.unlinkSync(path.join(repo, 'added.js'));
+  fs.chmodSync(path.join(repo, 'main.js'), 0o600);
+  const removed = createGitSourceSnapshot(options);
+  assert.equal(removed.changedFiles, 2);
+  assert.equal(fs.existsSync(path.join(initial.directory, 'added.js')), false);
+  assert.equal(fs.statSync(oldFile).mode & 0o111, 0);
+  const other = fixture(t);
+  assert.throws(() => createGitSourceSnapshot({ ...options, checkoutPath: other.repo }), /другому проекту/);
+});
+
+test('reuse refuses symlink parents and dangling file links before writing outside its directory', t => {
+  for (const parentLink of [true, false]) {
+    const { root, repo } = fixture(t);
+    const first = createGitSourceSnapshot({ checkoutPath: repo, destination: path.join(root, 'reuse'),
+      reference: 'HEAD', workingTree: true, branch: 'beta' });
+    const outside = path.join(root, 'outside');
+    fs.mkdirSync(outside);
+    const relative = parentLink ? 'nested/new.js' : 'new.js';
+    if (parentLink) {
+      fs.mkdirSync(path.join(repo, 'nested'));
+      fs.symlinkSync(outside, path.join(first.directory, 'nested'));
+    } else {
+      fs.symlinkSync(path.join(outside, 'new.js'), path.join(first.directory, 'new.js'));
+    }
+    fs.writeFileSync(path.join(repo, relative), 'safe fixture\n');
+    assert.throws(() => createGitSourceSnapshot({ checkoutPath: repo, destination: first.directory,
+      reference: 'HEAD', workingTree: true, branch: 'beta', reuse: true }));
+    assert.equal(fs.existsSync(path.join(outside, 'new.js')), false);
+  }
+});
+
 test("имена каталогов различают регистр, косую черту, дефис и знак процента", () => {
   const keys = ["refs/heads/feature/x", "refs/heads/feature-x", "refs/heads/Feature/x", "refs/heads/feature%2Fx", "refs/remotes/origin/beta"];
   const names = keys.map(branchDirectoryName);

@@ -11,6 +11,7 @@ export interface GitSourceSnapshot {
   snapshotCommit: string;
   files: number;
   excluded: string[];
+  changedFiles: number;
 }
 export function readGitCheckout(checkoutPath: string): GitCheckout;
 export function branchDirectoryName(branchKey: string): string;
@@ -21,4 +22,5 @@ export function createGitSourceSnapshot(options: {
   workingTree: boolean;
   branch: string;
   previousSnapshot?: string;
+  reuse?: boolean;
 }): GitSourceSnapshot;
