@@ -1,6 +1,6 @@
 {
   "name": "ai-agents-library",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Общие модули для локальных агентских инструментов",
   "private": true,
   "license": "MIT",
@@ -15,6 +15,8 @@
   "type": "module",
   "files": [
     "LICENSE",
+    "bin",
+    "skills",
     "src",
     "docs",
     "README.md"
@@ -24,6 +26,12 @@
   },
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
+  "bin": {
+    "approval-continuation-hook": "./bin/approval-continuation-hook.js",
+    "git-action-guard-hook": "./bin/git-action-guard-hook.js",
+    "install-git-action-guard": "./bin/install-git-action-guard.js",
+    "install-approval-continuation": "./bin/install-approval-continuation.js"
+  },
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
@@ -32,6 +40,34 @@
     "./project-locations": {
       "types": "./src/project-locations.d.ts",
       "import": "./src/project-locations.js"
+    },
+    "./branch-targets": {
+      "types": "./src/branch-targets.d.ts",
+      "import": "./src/branch-targets.js"
+    },
+    "./git-checkout": {
+      "types": "./src/git-checkout.d.ts",
+      "import": "./src/git-checkout.js"
+    },
+    "./approval-continuation": {
+      "types": "./src/approval-continuation/index.d.ts",
+      "import": "./src/approval-continuation/index.js"
+    },
+    "./adapters/pi": {
+      "types": "./src/adapters/pi.d.ts",
+      "import": "./src/adapters/pi.js"
+    },
+    "./adapters/oh-my-pi": {
+      "types": "./src/adapters/oh-my-pi.d.ts",
+      "import": "./src/adapters/oh-my-pi.js"
+    },
+    "./adapters/opencode-v1": {
+      "types": "./src/adapters/opencode-v1.d.ts",
+      "import": "./src/adapters/opencode-v1.js"
+    },
+    "./adapters/opencode-v2": {
+      "types": "./src/adapters/opencode-v2.d.ts",
+      "import": "./src/adapters/opencode-v2.js"
     }
   },
   "scripts": {

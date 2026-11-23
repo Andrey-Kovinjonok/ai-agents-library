@@ -33,9 +33,17 @@ export interface ProductConfig {
 }
 
 export interface ResolvedProductProject extends AgentProductPaths {
+  configured: true;
   identity: ProjectIdentity;
   mapping: ProductProjectMapping;
   config: ProductConfig;
+}
+
+export interface MissingProductProject extends AgentProductPaths {
+  configured: false;
+  reason: "config-missing" | "project-missing";
+  identity: ProjectIdentity;
+  config?: ProductConfig;
 }
 
 export const PRODUCT_CONFIG_SCHEMA_VERSION: 1;
@@ -62,8 +70,21 @@ export function resolveProductProject(
   options?: ProjectIdentityOptions & AgentProductPathsOptions,
 ): ResolvedProductProject;
 
+export function findProductProject(
+  product: string,
+  startPath: string,
+  options?: ProjectIdentityOptions & AgentProductPathsOptions,
+): ResolvedProductProject | MissingProductProject;
+
 export function ensureProductProject(
   product: string,
   startPath: string,
+  options?: ProjectIdentityOptions & AgentProductPathsOptions,
+): Promise<ResolvedProductProject>;
+
+export function updateProductProject(
+  product: string,
+  startPath: string,
+  patch: Record<string, unknown> & { directory?: never },
   options?: ProjectIdentityOptions & AgentProductPathsOptions,
 ): Promise<ResolvedProductProject>;

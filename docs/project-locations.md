@@ -60,6 +60,9 @@ interface ProductConfigV1 {
   диск.
 - `resolveProductProject(product, path, options)` заново читает `config.json` и
   возвращает текущую связь вместе с полным объектом `config` без кеширования.
+- `findProductProject(product, path, options)` выполняет тот же поиск, но для
+  отсутствующего файла настроек или отсутствующего точного пути возвращает
+  `configured: false` и причину вместо исключения.
 - `ensureProductProject(product, path, options)` безопасно создаёт или сохраняет
   связь и папку проекта продукта; в результате также возвращается уже
   обновлённый полный объект `config`.

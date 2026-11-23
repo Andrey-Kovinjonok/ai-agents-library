@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   agentProductPaths,
   ensureProductProject,
+  findProductProject,
   projectAlias,
   resolveProductProject,
   resolveProjectIdentity,
@@ -138,6 +139,52 @@ test("конфиг продукта связывает реальный путь
     second.config.projects[identity.canonicalPath].directory,
     `projects/${identity.alias}_changed`,
   );
+  fs.rmSync(temp, { recursive: true, force: true });
+});
+
+test("необязательный поиск проекта различает отсутствие конфига, отсутствие пути и точное совпадение", () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "agent-library-find-project-"));
+  const home = path.join(temp, "home", "tester");
+  const configuredRepo = path.join(home, "WORK", "OF", "frontend");
+  const unknownRepo = path.join(home, "WORK", "OF", "backend");
+  const agentsRoot = path.join(home, ".agents");
+  createRepository(configuredRepo);
+  createRepository(unknownRepo);
+
+  const withoutConfig = findProductProject("git-branch-guard", configuredRepo, {
+    agentsRoot,
+    homeDir: home,
+  });
+  assert.equal(withoutConfig.configured, false);
+  assert.equal(withoutConfig.reason, "config-missing");
+
+  const identity = resolveProjectIdentity(configuredRepo, { homeDir: home });
+  const paths = agentProductPaths("git-branch-guard", identity, { agentsRoot });
+  fs.mkdirSync(paths.productDirectory, { recursive: true });
+  fs.writeFileSync(paths.productConfigFile, JSON.stringify({
+    schemaVersion: 1,
+    projects: {
+      [identity.canonicalPath]: {
+        directory: `projects/${identity.alias}`,
+        forbiddenBranches: ["beta"],
+      },
+    },
+  }));
+
+  const unknown = findProductProject("git-branch-guard", unknownRepo, {
+    agentsRoot,
+    homeDir: home,
+  });
+  assert.equal(unknown.configured, false);
+  assert.equal(unknown.reason, "project-missing");
+
+  const configured = findProductProject("git-branch-guard", configuredRepo, {
+    agentsRoot,
+    homeDir: home,
+  });
+  assert.equal(configured.configured, true);
+  assert.deepEqual(configured.mapping.forbiddenBranches, ["beta"]);
+  assert.equal(configured.identity.canonicalPath, identity.canonicalPath);
   fs.rmSync(temp, { recursive: true, force: true });
 });
 
